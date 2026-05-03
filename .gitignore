@@ -1,6 +1,15 @@
+# data
 checkpoint/
 dataset/
+.ipynb_checkpoints/
+Untitled.ipynb
+
+# cache
 __pycache__/
 train_data/
+
+# misc
 test_gpu.py
+
+# dependencies/environment
 .venv/

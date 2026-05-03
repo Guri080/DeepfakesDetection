@@ -13,7 +13,7 @@ from tqdm import tqdm
 from dataloader import get_dataloaders
 from model import EfficientNetB7
 
-USE_DEVICE_ID = "0,1,2"
+USE_DEVICE_ID = ["1"]
 def evaluate(model, loader, criterion, device):
     model.eval()
     total_loss = 0.0
@@ -60,7 +60,7 @@ def train(args):
     )
 
     model = EfficientNetB7(out_ftrs=2).to(device)
-    if torch.cuda.device_count() > 1:
+    if torch.cuda.device_count() > 1 and len(USE_DEVICE_ID) > 1:
         model = nn.DataParallel(model, device_ids=[0, 1, 2])
     criterion = nn.CrossEntropyLoss()
     optimizer = AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
@@ -155,9 +155,8 @@ if __name__ == "__main__":
     cli_args = parser.parse_args()
 
     def get_num_workers():
-        all_device = USE_DEVICE_ID.split(',')
-        # Use 3 cpu cores per GPU
-        return 4 * len(all_device)
+        # Use 4 cpu cores per GPU
+        return 4 * len(USE_DEVICE_ID)
     
     args = model_config(
         batch_size = cli_args.batch_size,
