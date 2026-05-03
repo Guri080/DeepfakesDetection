@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from tqdm import tqdm
 
 from dataloader import get_dataloaders
-from model import EfficientNetB7
+from model import EfficientNetB7, EfficientNetB1
 
 USE_DEVICE_ID = ["1"]
 def evaluate(model, loader, criterion, device):
@@ -40,12 +40,19 @@ def save_checkpoint(state, path):
 
 
 def train(args):
-    os.environ["CUDA_VISIBLE_DEVICES"] = USE_DEVICE_ID
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device(f"cuda:{USE_DEVICE_ID[0]}" if torch.cuda.is_available() else "cpu")
 
-    MODEL_NAME = "EfficientNetB7"
-    CHECKPOINT_DIR = os.path.join("/home/gssodhi/deepfake_detect/checkpoint", f"{MODEL_NAME}/{args.run}")
-    METRICS_CSV = os.path.join("/home/gssodhi/deepfake_detect/train_data", f"{MODEL_NAME}/{args.run}.csv")
+    MODEL_FACTORY = {
+        'effnetb1' : EfficientNetB1,
+        'effnetb7' : EfficientNetB7
+    }
+
+    MODEL_NAME = args.model
+    CHECKPOINT_DIR = os.path.join("/home/gssodhi/deepfake_detect/checkpoint", f"{MODEL_NAME}_{args.run}")
+    metrics_dir = os.path.join("/home/gssodhi/deepfake_detect/train_data", f"{MODEL_NAME}")
+    os.makedirs(metrics_dir, exist_ok=True)
+    METRICS_CSV = os.path.join(metrics_dir, f"{args.run}.csv")
+
     print(f"Using device: {device}")
 
     os.makedirs(CHECKPOINT_DIR, exist_ok=True)
@@ -59,7 +66,7 @@ def train(args):
         num_workers=args.num_workers,
     )
 
-    model = EfficientNetB7(out_ftrs=2).to(device)
+    model = MODEL_FACTORY[args.model](out_ftrs=2).to(device)
     if torch.cuda.device_count() > 1 and len(USE_DEVICE_ID) > 1:
         model = nn.DataParallel(model, device_ids=[0, 1, 2])
     criterion = nn.CrossEntropyLoss()
@@ -131,6 +138,7 @@ def train(args):
 
 @dataclass
 class model_config:
+    model: str = "effnetb1"
     batch_size: int = 128
     num_workers:int = 8
     lr: float = 1e-5
@@ -145,7 +153,8 @@ class model_config:
     run: str = 'run'
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train EfficientNetB7 deepfake detector")
+    parser = argparse.ArgumentParser(description="Train EfficientNet deepfake detector")
+    parser.add_argument("--model", type=str)
     parser.add_argument("--frames_per_video", type=int, default=16)
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--epochs", type=int, default=20)
@@ -159,6 +168,7 @@ if __name__ == "__main__":
         return 4 * len(USE_DEVICE_ID)
     
     args = model_config(
+        model = cli_args.model,
         batch_size = cli_args.batch_size,
         num_workers = get_num_workers(),
         epochs = cli_args.epochs,
